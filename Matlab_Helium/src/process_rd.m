@@ -10,7 +10,11 @@
 %   result_dir    - 结果输出目录
 %   status_cb     - 状态输出函数
 % 输出：
-%   out_file      - 生成的 RD_Proc_*.mat 文件路径
+%   meta - 处理元数据结构体
+% 作用：
+%   将当前运行的通道语义、距离轴定义、MTI 和预处理开关等关键信息
+%   一并写入 RD_Proc_*.mat，使得后续加载该文件时无需翻阅源码即可
+%   了解这批数据是在什么处理参数下生成的。
 % 作用：
 %   按通道执行“读取 -> chunk 预处理 -> CPI 组块 -> 慢时间处理 -> 写结果”。
 %   单独保留这个模块的原因是：RD 处理是整条流程里最重的主体计算阶段，
@@ -32,6 +36,7 @@ mf = matfile(out_file, 'Writable', true);
 mf.r_axis_full = rd_ctx.r_axis_full;
 mf.v_axis_full = rd_ctx.v_axis_full;
 mf.N_cpi = int32(rd_ctx.n_cpi);
+mf.processing_meta = build_processing_meta(rd_ctx, process_cfg, channel_ids);
 status_cb(sprintf('[RD] 输出文件：%s', out_file));
 
 channel_ids = parse_bundle.channel_ids;
@@ -107,7 +112,11 @@ function [n_blocks_written, preproc_state] = process_one_channel(mf_rx, channel_
 %   output_name        - 输出变量名
 %   status_cb          - 状态输出函数
 % 输出：
-%   n_blocks_written   - 当前通道写入的 RD 块数
+%   meta - 处理元数据结构体
+% 作用：
+%   将当前运行的通道语义、距离轴定义、MTI 和预处理开关等关键信息
+%   一并写入 RD_Proc_*.mat，使得后续加载该文件时无需翻阅源码即可
+%   了解这批数据是在什么处理参数下生成的。
 %   preproc_state      - 更新后的通道预处理状态
 % 作用：
 %   逐 chunk 读取原始通道，调用 preprocess 处理，再把块级 RD 结果写入 mat 文件。
@@ -218,4 +227,29 @@ function preproc_state = reset_channel_state(preproc_state)
 
 preproc_state.phase_starts = zeros(size(preproc_state.phase_starts), 'like', preproc_state.phase_starts);
 preproc_state.last_phase = 0;
+end
+
+% ==== 本地辅助函数 ====
+function meta = build_processing_meta(rd_ctx, process_cfg, channel_ids)
+%BUILD_PROCESSING_META 构建写入 RD 输出文件的处理元数据。
+%
+% 输入：
+%   rd_ctx      - RD 上下文
+%   process_cfg - 处理配置结构体
+%   channel_ids - 通道编号数组
+% 输出：
+%   meta - 处理元数据结构体
+% 作用：
+%   将当前运行的通道语义、距离轴定义、MTI 和预处理开关等关键信息
+%   一并写入 RD_Proc_*.mat，使得后续加载该文件时无需翻阅源码即可
+%   了解这批数据是在什么处理参数下生成的。
+
+meta = struct();
+meta.channel_roles = struct( ...
+    'sum', channel_ids(1), ...
+    'az_diff', sprintf('channel%d_left_minus_right', channel_ids(2)), ...
+    'el_diff', sprintf('channel%d_up_minus_down', channel_ids(3)));
+meta.range_bin_spacing_m = rd_ctx.c / (2 * rd_ctx.fs);
+meta.mti = struct('two_pulse_cancel', process_cfg.process.do_mti_twopulse);
+meta.preprocessing = struct('fast_time_dc_remove', process_cfg.preprocess.do_fast_dc_remove);
 end

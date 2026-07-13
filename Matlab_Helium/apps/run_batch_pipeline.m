@@ -655,6 +655,7 @@ function rd_ctx = build_rd_context(rx_param, tx, rd_cfg, radar_cfg)
     rd_ctx.total_frames_global = builtin('double', rx_param.total_pri);
     rd_ctx.prt = rd_ctx.pri_len / rd_ctx.fs;
     rd_ctx.lambda = radar_cfg.c / radar_cfg.fc;
+    rd_ctx.c = radar_cfg.c;
     rd_ctx.n_cpi = builtin('double', rd_cfg.n_cpi);
     rd_ctx.n_overlap = builtin('double', rd_cfg.n_overlap);
     rd_ctx.n_step = rd_ctx.n_cpi - rd_ctx.n_overlap;
