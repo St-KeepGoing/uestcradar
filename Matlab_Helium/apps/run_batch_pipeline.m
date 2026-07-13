@@ -61,6 +61,7 @@ cfg.detect.cfar_guard_d = 4; % CFAR 在速度维的保护单元数；避免参�
 cfg.detect.cfar_ref_r = 8; % CFAR 在距离维的参考单元数；用于估计局部噪声背景。
 cfg.detect.cfar_ref_d = 16; % CFAR 在速度维的参考单元数；用于估计局部噪声背景。
 cfg.detect.cfar_pfa = 1e-6; % CFAR 虚警概率；这里设置为 10^-6，目的是进一步压低虚警点数量，让检测结果更保守。
+cfg.detect.frame_step = 1; % 检测/聚类/测角抽帧步长；默认1（全帧），独立于 cfg.plot.frame_step。
 
 %% 7. 参数区：聚类参数
 cfg.cluster.dbscan_eps = 3; % DBSCAN 邻域半径；单位是“距离 bin / 速度 bin”的索引尺度。
@@ -214,7 +215,7 @@ for di = 1:numel(cfg.paths.data_folders)
         v_mask = v_axis >= detect_v_range(1) & v_axis <= detect_v_range(2);
         r_disp = r_axis(r_mask);
         v_disp = v_axis(v_mask);
-        frame_ids = 1:cfg.plot.frame_step:n_frames;
+        frame_ids = 1:cfg.detect.frame_step:n_frames;
         nf = numel(frame_ids);
 
         cfar_p = struct();
@@ -278,6 +279,10 @@ for di = 1:numel(cfg.paths.data_folders)
         % 这里把检测、聚类和测角放在同一个逐帧循环里，
         % 目的是让每一帧的目标分析结果在同一处完成收口：
         % 先得到候选点，再聚成目标簇，最后从每个簇里选代表点做测角。
+        r_gate = r_axis(2) - r_axis(1);
+        v_gate = v_axis(2) - v_axis(1);
+        r_base = find(r_mask, 1, 'first') - 1;
+        v_base = find(v_mask, 1, 'first') - 1;
         for fi = 1:nf
             k = frame_ids(fi);
             rd0 = rd.RD_Sum_All(:, :, k);
@@ -285,8 +290,10 @@ for di = 1:numel(cfg.paths.data_folders)
             pwr = abs(rd_sub).^2;
 
             if cfg.run.do_detect
-                det_mask = cfar_2d(pwr, cfar_p);
+                det_mask_full = cfar_2d(abs(rd0).^2, cfar_p);
+                det_mask = det_mask_full & r_mask & v_mask;
                 [det_r_idx, det_v_idx] = find(det_mask);
+                det_r_idx = det_r_idx - r_base; det_v_idx = det_v_idx - v_base;
                 else
                 det_r_idx = zeros(0, 1);
                 det_v_idx = zeros(0, 1);
@@ -294,7 +301,8 @@ for di = 1:numel(cfg.paths.data_folders)
             n_det = numel(det_r_idx);
 
             if cfg.run.do_cluster && n_det >= cfg.cluster.dbscan_min
-                [clu_ids, n_clu] = dbscan_cluster([det_r_idx, det_v_idx], cfg.cluster.dbscan_eps, cfg.cluster.dbscan_min);
+                pts_phys = [r_axis(det_r_idx + r_base)' ./ r_gate, v_axis(det_v_idx + v_base)' ./ v_gate];
+                [clu_ids, n_clu] = dbscan_cluster(pts_phys, cfg.cluster.dbscan_eps, cfg.cluster.dbscan_min);
                 else
                 clu_ids = zeros(n_det, 1, 'int32');
                 n_clu = 0;
