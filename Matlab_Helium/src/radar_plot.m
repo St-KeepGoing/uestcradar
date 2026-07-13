@@ -1,4 +1,4 @@
-function out = radar_plot(mat_path, result_dir, plot_cfg, det_result, ang_result)
+﻿function out = radar_plot(mat_path, result_dir, plot_cfg, det_result, ang_result)
 %RADAR_PLOT 纯绘图模块。
 %
 % 输入：
@@ -120,11 +120,14 @@ if ~isempty(det_result)
     gif_cm_det = [];
     for frame_idx = 1:nf
         cla(ax_det);
+        k = frame_ids(frame_idx);
+        det_pos = find(det_result.frame_ids == k, 1);
+        if isempty(det_pos), continue; end
         hold(ax_det, 'on');
-        det_r_idx = double(det_result.det_r{frame_idx});
-        det_v_idx = double(det_result.det_v{frame_idx});
-        clu_ids = det_result.clu_ids{frame_idx};
-        n_clu = double(det_result.n_clu(frame_idx));
+        det_r_idx = double(det_result.det_r{det_pos});
+        det_v_idx = double(det_result.det_v{det_pos});
+        clu_ids = det_result.clu_ids{det_pos};
+        n_clu = double(det_result.n_clu(det_pos));
         n_det = numel(det_r_idx);
         if n_det > 0
             plot(ax_det, v_disp(det_v_idx), r_disp(det_r_idx), ...
@@ -176,12 +179,15 @@ if ~isempty(ang_result) && isfield(ang_result, 'has_angle') && ang_result.has_an
     gif_cm_ang = [];
     for frame_idx = 1:nf
         cla(ax1);
+        k = frame_ids(frame_idx);
+        ang_pos = find(ang_result.frame_ids == k, 1);
+        if isempty(ang_pos), continue; end
         cla(ax2);
-        r_m = double(ang_result.r_m{frame_idx});
-        v_m = double(ang_result.v_m{frame_idx});
-        az_m = double(ang_result.az_m{frame_idx});
-        el_m = double(ang_result.el_m{frame_idx});
-        sz_m = double(ang_result.sz_m{frame_idx});
+        r_m = double(ang_result.r_m{ang_pos});
+        v_m = double(ang_result.v_m{ang_pos});
+        az_m = double(ang_result.az_m{ang_pos});
+        el_m = double(ang_result.el_m{ang_pos});
+        sz_m = double(ang_result.sz_m{ang_pos});
         n_ang = numel(r_m);
         if n_ang > 0
             scatter(ax1, az_m(:), r_m(:), sz_m(:), v_m(:), 'filled');
